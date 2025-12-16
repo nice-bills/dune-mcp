@@ -2,13 +2,14 @@ from cachetools import TTLCache
 from typing import Any, Optional, Literal
 
 # Cache Types
-CacheType = Literal["schema", "query", "status", "budget"]
+CacheType = Literal["schema", "query", "status", "budget", "github"]
 
 class CacheManager:
     def __init__(self, 
                  ttl_schema: int = 86400, 
                  ttl_query: int = 86400, 
-                 ttl_status: int = 300):
+                 ttl_status: int = 300,
+                 ttl_github: int = 86400): # 1 day default for GitHub
         
         # Schemas rarely change -> Long TTL (24h)
         self.schema_cache = TTLCache(maxsize=100, ttl=ttl_schema)
@@ -21,6 +22,9 @@ class CacheManager:
         
         # User budget -> Short TTL (5m)
         self.budget_cache = TTLCache(maxsize=1, ttl=300)
+        
+        # GitHub content -> Long TTL (24h)
+        self.github_cache = TTLCache(maxsize=200, ttl=ttl_github)
 
     def get(self, cache_type: CacheType, key: str) -> Optional[Any]:
         if cache_type == "schema":
@@ -31,6 +35,8 @@ class CacheManager:
             return self.status_cache.get(key)
         elif cache_type == "budget":
             return self.budget_cache.get(key)
+        elif cache_type == "github":
+            return self.github_cache.get(key)
         return None
 
     def set(self, cache_type: CacheType, key: str, value: Any):
@@ -42,9 +48,12 @@ class CacheManager:
             self.status_cache[key] = value
         elif cache_type == "budget":
             self.budget_cache[key] = value
+        elif cache_type == "github":
+            self.github_cache[key] = value
 
     def clear(self):
         self.schema_cache.clear()
         self.query_cache.clear()
         self.status_cache.clear()
         self.budget_cache.clear()
+        self.github_cache.clear()

@@ -61,7 +61,13 @@ class DuneService:
     def search_spellbook(self, keyword: str) -> List[Dict[str, Any]]:
         """
         Searches the duneanalytics/spellbook GitHub repository for SQL models and schema files.
+        Results are cached for 24 hours.
         """
+        cache_key = f"search:{keyword}"
+        cached_results = self.cache.get("github", cache_key)
+        if cached_results:
+            return cached_results
+
         base_url = "https://api.github.com/search/code"
         repo = "repo:duneanalytics/spellbook"
         
@@ -96,19 +102,30 @@ class DuneService:
                     "repo_url": item["url"]
                 })
         
+        if found_files:
+            self.cache.set("github", cache_key, found_files)
+            
         return found_files
 
     def get_spellbook_file_content(self, path: str) -> Optional[str]:
         """
         Fetches the raw content of a file from the duneanalytics/spellbook GitHub repository.
         'path' should be the full path within the repository (e.g., 'models/dex/uniswap/trades.sql').
+        Content is cached for 24 hours.
         """
+        cache_key = f"content:{path}"
+        cached_content = self.cache.get("github", cache_key)
+        if cached_content:
+            return cached_content
+
         # GitHub raw content URL pattern
         raw_url = f"https://raw.githubusercontent.com/duneanalytics/spellbook/main/{path}"
         try:
             response = requests.get(raw_url, timeout=15)
             response.raise_for_status()
-            return response.text
+            content = response.text
+            self.cache.set("github", cache_key, content)
+            return content
         except Exception as e:
             logger.error(f"Failed to fetch content for {path} from GitHub: {e}")
             return None

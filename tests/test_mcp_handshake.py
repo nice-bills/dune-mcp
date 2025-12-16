@@ -8,7 +8,7 @@ def test_handshake():
     server_script = os.path.join("src", "main.py")
     
     # Start the MCP server process
-    print(f"🔌 Starting server: uv run {server_script} ...")
+    print(f"Starting server: uv run {server_script} ...")
     process = subprocess.Popen(
         ["uv", "run", server_script],
         stdin=subprocess.PIPE,
@@ -33,7 +33,7 @@ def test_handshake():
         }
     }
 
-    print("📤 Sending 'initialize' request...")
+    print("Sending 'initialize' request...")
     
     # Write to the server's stdin
     json_str = json.dumps(init_request)
@@ -45,14 +45,14 @@ def test_handshake():
     response_line = process.stdout.readline()
     
     if response_line:
-        print("\n✅ Server Responded:")
+        print("\nServer Responded:")
         try:
             resp = json.loads(response_line)
             print(json.dumps(resp, indent=2))
         except json.JSONDecodeError:
             print(f"Received non-JSON: {response_line}")
     else:
-        print("\n❌ No response received.")
+        print("\nNo response received.")
         print("Stderr content:")
         print(process.stderr.read())
 
