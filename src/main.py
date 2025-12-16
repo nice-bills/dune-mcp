@@ -179,5 +179,24 @@ def export_results_to_csv(job_id: str) -> str:
     except Exception as e:
         return f"Error exporting data: {str(e)}"
 
+@mcp.tool()
+def list_user_queries(handle: str, limit: int = 10) -> str:
+    """
+    List queries created by a specific user handle.
+    """
+    user_id = dune_service.get_user_id_by_handle(handle)
+    if not user_id:
+        return f"Error: Could not find user with handle '{handle}'."
+        
+    results = dune_service.list_user_queries(user_id, limit)
+    if not results:
+        return f"No queries found for user '{handle}'."
+
+    summary = []
+    for q in results:
+        summary.append(f"ID: {q.get('id')} | Name: {q.get('name')} | Owner: {q.get('owner')}")
+    
+    return "\n".join(summary)
+
 if __name__ == "__main__":
     mcp.run()
