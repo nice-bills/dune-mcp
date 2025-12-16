@@ -43,6 +43,76 @@ class DuneService:
             logger.error(f"GraphQL request failed: {e}")
             return None
 
+    def _github_api_request(self, url: str) -> Optional[Dict[str, Any]]:
+        headers = {"Accept": "application/vnd.github.v3+json"}
+        # For higher rate limits, user can set GITHUB_TOKEN in .env
+        github_token = os.getenv("GITHUB_TOKEN")
+        if github_token:
+            headers["Authorization"] = f"token {github_token}"
+            
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"GitHub API request failed for {url}: {e}")
+            return None
+
+    def search_spellbook(self, keyword: str) -> List[Dict[str, Any]]:
+        """
+        Searches the duneanalytics/spellbook GitHub repository for SQL models and schema files.
+        """
+        base_url = "https://api.github.com/search/code"
+        repo = "repo:duneanalytics/spellbook"
+        
+        # Search for .sql files
+        sql_query = f"{keyword} {repo} in:file extension:sql"
+        sql_url = f"{base_url}?q={sql_query}"
+        sql_results = self._github_api_request(sql_url)
+        
+        # Search for schema.yml files (which might contain definitions)
+        yaml_query = f"{keyword} {repo} in:file filename:schema.yml"
+        yaml_url = f"{base_url}?q={yaml_query}"
+        yaml_results = self._github_api_request(yaml_url)
+        
+        found_files = []
+        if sql_results and sql_results.get("items"):
+            for item in sql_results["items"]:
+                found_files.append({
+                    "name": item["name"],
+                    "path": item["path"],
+                    "url": item["html_url"],
+                    "type": "sql_model",
+                    "repo_url": item["url"] # API URL for file content
+                })
+        
+        if yaml_results and yaml_results.get("items"):
+            for item in yaml_results["items"]:
+                found_files.append({
+                    "name": item["name"],
+                    "path": item["path"],
+                    "url": item["html_url"],
+                    "type": "schema_definition",
+                    "repo_url": item["url"]
+                })
+        
+        return found_files
+
+    def get_spellbook_file_content(self, path: str) -> Optional[str]:
+        """
+        Fetches the raw content of a file from the duneanalytics/spellbook GitHub repository.
+        'path' should be the full path within the repository (e.g., 'models/dex/uniswap/trades.sql').
+        """
+        # GitHub raw content URL pattern
+        raw_url = f"https://raw.githubusercontent.com/duneanalytics/spellbook/main/{path}"
+        try:
+            response = requests.get(raw_url, timeout=15)
+            response.raise_for_status()
+            return response.text
+        except Exception as e:
+            logger.error(f"Failed to fetch content for {path} from GitHub: {e}")
+            return None
+
     def get_user_id_by_handle(self, handle: str) -> Optional[int]:
         payload = {
             "operationName": "FindUser",
@@ -199,6 +269,57 @@ class DuneService:
                 })
             return results
         return []
+
+    def get_table_schema(self, table_name: str) -> Dict[str, Any]:
+        """
+        Fetches the schema (columns and types) for a table by running a
+        'SELECT * FROM table LIMIT 0' query.
+        WARNING: This consumes Dune credits!
+        """
+        sql = f"SELECT * FROM {table_name} LIMIT 0"
+        
+        # We need to execute and wait for the result to get metadata
+        # create_query usually requires a name, but we can use execute_query with raw sql 
+        # via the query_id (if we had one) or generic execute.
+        # dune-client 1.x allows executing raw SQL via `execute_query` if we pass a Query object 
+        # but usually we need a query ID.
+        
+        # Actually, the official SDK/API usually requires a Query ID to execute anything.
+        # We can't just send raw SQL without an existing Query ID container unless we create one.
+        # BUT, we can use the "Query ID 0" or "Ad-hoc" mode if supported, or we must create a query.
+        
+        # Let's check if we can use `client.run_sql` or similar (from our introspection earlier).
+        # We saw `run_sql`. Let's try that.
+        
+        try:
+            # run_sql takes (query_sql, performance=...)
+            # It returns a ResultsResponse
+            result = self.client.run_sql(
+                query_sql=sql,
+                performance="medium" # medium is usually fine/cheapest
+            )
+            
+            # The result object has 'meta' -> 'columns'
+            # We need to inspect the structure of 'result'
+            # Usually result.result.metadata.column_names / column_types
+            
+            if not result or not result.result:
+                return {"error": "No result returned"}
+
+            meta = result.result.metadata
+            columns = []
+            if meta:
+                for col in meta.columns:
+                    columns.append({"name": col.name, "type": col.type})
+            
+            return {
+                "table": table_name,
+                "columns": columns
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting schema for {table_name}: {e}")
+            raise
 
     def get_query(self, query_id: int) -> Dict[str, Any]:
         cache_key = str(query_id)

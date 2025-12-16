@@ -75,7 +75,8 @@ def get_session_budget() -> str:
 def search_public_queries(query: str) -> str:
     """
     Search for existing public queries on Dune.
-    Use this instead of writing new SQL whenever possible.
+    CRITICAL: Use this tool to discover table names and schema patterns by inspecting 
+    SQL from similar queries. DO NOT GUESS table names.
     Returns a summary list of matching queries.
     """
     results = dune_service.search_queries(query)
@@ -93,7 +94,8 @@ def search_public_queries(query: str) -> str:
 def get_query_details(query_id: int) -> str:
     """
     Get the full SQL, description, and parameters for a specific query.
-    Use this to understand what a query does before running it.
+    Use this to understand what a query does before running it, or to 
+    extract table names from working SQL.
     """
     try:
         details = dune_service.get_query(query_id)
@@ -108,10 +110,38 @@ def get_query_details(query_id: int) -> str:
         return f"Error fetching details: {str(e)}"
 
 @mcp.tool()
+def get_table_schema(table_name: str) -> str:
+    """
+    Get the column definitions for a specific table.
+    ⚠️ WARNING: This tool executes a 'SELECT * LIMIT 0' query which CONSUMES CREDITS.
+    Use this ONLY if you know the table name but cannot find its schema via existing queries.
+    """
+    try:
+        # 1. Check Budget (This counts as a query execution)
+        budget_manager.check_can_execute_query(estimated_cost=1) # Assume 1 credit base cost
+        
+        # 2. Execute
+        schema = dune_service.get_table_schema(table_name)
+        
+        # 3. Track Budget
+        budget_manager.track_execution(cost=1) # Track the spend
+        
+        cols = schema.get("columns", [])
+        col_strs = [f"- {c['name']} ({c['type']})" for c in cols]
+        
+        return f"Schema for '{table_name}':\n" + "\n".join(col_strs)
+
+    except BudgetExceededError as e:
+        return f"SCHEMA ACCESS DENIED: {str(e)}"
+    except Exception as e:
+        return f"Error fetching schema: {str(e)}"
+
+@mcp.tool()
 def execute_query(query_id: int, params: Optional[Dict[str, Any]] = None) -> str:
     """
     Execute a specific query ID. 
     CHECKS BUDGET FIRST. Returns a Job ID to track progress.
+    WARNING: Ensure query_id is valid. Do not execute queries with guessed table names.
     """
     try:
         # 1. Check Session Budget (Query Count)
@@ -206,6 +236,36 @@ def list_user_queries(handle: Optional[str] = None, limit: int = 10) -> str:
         summary.append(f"ID: {q.get('id')} | Name: {q.get('name')} | Owner: {q.get('owner')}")
     
     return "\n".join(summary)
+
+@mcp.tool()
+def search_spellbook(keyword: str) -> str:
+    """
+    Search the Dune Spellbook (GitHub) for official table definitions and logic.
+    Use this to find high-quality, community-vetted table schemas (e.g. for 'uniswap').
+    Returns a list of matching file paths (SQL models and YAML schemas).
+    """
+    results = dune_service.search_spellbook(keyword)
+    if not results:
+        return f"No results found in Spellbook for '{keyword}'."
+        
+    summary = []
+    for f in results[:15]: # Limit to top 15 matches
+        summary.append(f"[{f['type']}] {f['path']}")
+    
+    return "\n".join(summary)
+
+@mcp.tool()
+def get_spellbook_file_content(path: str) -> str:
+    """
+    Fetch the content of a file from the Dune Spellbook repository.
+    Use this to read the SQL logic or Schema definition of a file found via 'search_spellbook'.
+    'path' should be the relative path returned by search (e.g., 'models/dex/uniswap/trades.sql').
+    """
+    content = dune_service.get_spellbook_file_content(path)
+    if not content:
+        return f"Error: Could not fetch content for '{path}'."
+    
+    return f"File: {path}\n\n{content}"
 
 if __name__ == "__main__":
     mcp.run()
