@@ -37,6 +37,12 @@ class DuneService:
                 },
                 timeout=timeout
             )
+            
+            # Check for Cloudflare/WAF blocks
+            if response.status_code == 403 or "Access Denied" in response.text:
+                logger.warning("Dune GraphQL endpoint blocked by Cloudflare (403 Forbidden).")
+                return {"error": "WAF_BLOCK"}
+                
             response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
             return response.json()
         except Exception as e:
@@ -150,6 +156,10 @@ class DuneService:
         }
         
         response_data = self._get_graphql_response(payload)
+        
+        if response_data and "error" in response_data and response_data["error"] == "WAF_BLOCK":
+            return -1 # Special sentinel for Blocked
+            
         if response_data:
             edges = response_data.get("data", {}).get("users", {}).get("edges", [])
             if edges:
@@ -162,9 +172,10 @@ class DuneService:
                     return None
         return None
 
-    def search_queries(self, query: str) -> List[Dict[str, Any]]:
+    def search_queries(self, query: str) -> Any: # Changed return hint to Any to support error dict
         """
         Search for public queries using Dune's GraphQL endpoint.
+        Returns List[Dict] on success, or Dict with error on failure.
         """
         # We use the internal GraphQL API because the Public API V1 
         # doesn't support generic keyword search yet.
@@ -195,28 +206,13 @@ class DuneService:
             """
         }
 
-        try:
-            # We use curl_cffi to mimic a browser and avoid potential WAF blocks
-            # on the public graphql endpoint.
-            from curl_cffi import requests as cffi_requests
-            
-            response = cffi_requests.post(
-                url,
-                json=payload,
-                impersonate="chrome",
-                headers={
-                    "Referer": "https://dune.com/browse/queries",
-                    "Content-Type": "application/json",
-                },
-                timeout=30
-            )
-            
-            if response.status_code != 200:
-                logger.error(f"GraphQL Search failed: {response.status_code} - {response.text}")
-                return []
+        response_data = self._get_graphql_response(payload)
+        
+        if response_data and "error" in response_data and response_data["error"] == "WAF_BLOCK":
+            return {"error": "Public search is currently blocked by Dune's security. Please use 'search_spellbook' to find tables or 'get_query_details' if you have an ID."}
 
-            data = response.json()
-            edges = data.get("data", {}).get("queries", {}).get("edges", [])
+        if response_data:
+            edges = response_data.get("data", {}).get("queries", {}).get("edges", [])
             
             results = []
             for edge in edges:
@@ -232,15 +228,15 @@ class DuneService:
                 })
                 
             return results
+        return []
 
-        except Exception as e:
-            logger.error(f"Error searching queries: {e}")
-            return []
-
-    def list_user_queries(self, user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+    def list_user_queries(self, user_id: int, limit: int = 10) -> Any: # Changed return hint
         """
         List queries for a given user ID using Dune's GraphQL endpoint.
         """
+        if user_id == -1: # WAF Block sentinel
+             return {"error": "User lookup failed due to Cloudflare block. Cannot list queries."}
+
         url = "https://core-api.dune.com/public/graphql" # Redundant, but good for clarity.
         
         payload = {
@@ -269,6 +265,10 @@ class DuneService:
         }
 
         response_data = self._get_graphql_response(payload)
+        
+        if response_data and "error" in response_data and response_data["error"] == "WAF_BLOCK":
+             return {"error": "Public search is currently blocked by Dune's security."}
+
         if response_data:
             edges = response_data.get("data", {}).get("queries", {}).get("edges", [])
             

@@ -80,6 +80,11 @@ def search_public_queries(query: str) -> str:
     Returns a summary list of matching queries.
     """
     results = dune_service.search_queries(query)
+    
+    # Handle WAF/Error
+    if isinstance(results, dict) and "error" in results:
+        return f"Error: {results['error']}"
+        
     if not results:
         return f"No public queries found matching '{query}'."
     
@@ -224,10 +229,20 @@ def list_user_queries(handle: Optional[str] = None, limit: int = 10) -> str:
         )
 
     user_id = dune_service.get_user_id_by_handle(target_handle)
+    
+    # Check for sentinel -1 (Blocked)
+    if user_id == -1:
+        return "Error: Public search is currently blocked by Dune's security. Please use 'search_spellbook' or 'get_query_details' instead."
+        
     if not user_id:
         return f"Error: Could not find user with handle '{target_handle}'."
         
     results = dune_service.list_user_queries(user_id, limit)
+    
+    # Handle WAF/Error in results
+    if isinstance(results, dict) and "error" in results:
+        return f"Error: {results['error']}"
+
     if not results:
         return f"No queries found for user '{target_handle}'."
 
