@@ -80,7 +80,7 @@ def search_public_queries(query: str) -> str:
     """
     results = dune_service.search_queries(query)
     if not results:
-        return "No queries found. Note: Public search is limited in API V1. Try 'list_user_queries' if you meant your own queries."
+        return f"No public queries found matching '{query}'."
     
     # Format as string summary
     summary = []
