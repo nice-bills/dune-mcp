@@ -180,17 +180,26 @@ def export_results_to_csv(job_id: str) -> str:
         return f"Error exporting data: {str(e)}"
 
 @mcp.tool()
-def list_user_queries(handle: str, limit: int = 10) -> str:
+def list_user_queries(handle: Optional[str] = None, limit: int = 10) -> str:
     """
     List queries created by a specific user handle.
+    If 'handle' is omitted, tries to use the 'DUNE_USER_HANDLE' from env config.
     """
-    user_id = dune_service.get_user_id_by_handle(handle)
+    target_handle = handle or config.DUNE_USER_HANDLE
+    
+    if not target_handle:
+        return (
+            "Error: No user handle provided. "
+            "Please provide a 'handle' argument or set DUNE_USER_HANDLE in your .env file."
+        )
+
+    user_id = dune_service.get_user_id_by_handle(target_handle)
     if not user_id:
-        return f"Error: Could not find user with handle '{handle}'."
+        return f"Error: Could not find user with handle '{target_handle}'."
         
     results = dune_service.list_user_queries(user_id, limit)
     if not results:
-        return f"No queries found for user '{handle}'."
+        return f"No queries found for user '{target_handle}'."
 
     summary = []
     for q in results:

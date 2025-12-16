@@ -23,6 +23,58 @@ class DuneService:
         self.client = DuneClient(self.api_key)
         self.cache = cache_manager
 
+    def _get_graphql_response(self, payload: Dict[str, Any], timeout: int = 30) -> Optional[Dict[str, Any]]:
+        url = "https://core-api.dune.com/public/graphql"
+        try:
+            from curl_cffi import requests as cffi_requests
+            response = cffi_requests.post(
+                url,
+                json=payload,
+                impersonate="chrome",
+                headers={
+                    "Referer": "https://dune.com/browse/queries",
+                    "Content-Type": "application/json",
+                },
+                timeout=timeout
+            )
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            return response.json()
+        except Exception as e:
+            logger.error(f"GraphQL request failed: {e}")
+            return None
+
+    def get_user_id_by_handle(self, handle: str) -> Optional[int]:
+        payload = {
+            "operationName": "FindUser",
+            "variables": {"name": handle},
+            "query": """
+                query FindUser($name: String!) {
+                    users(filters: { name: { equals: $name } }) {
+                        edges {
+                            node {
+                                id
+                                name
+                                handle
+                            }
+                        }
+                    }
+                }
+            """
+        }
+        
+        response_data = self._get_graphql_response(payload)
+        if response_data:
+            edges = response_data.get("data", {}).get("users", {}).get("edges", [])
+            if edges:
+                # Assuming handle is unique, take the first result
+                user_id = edges[0].get("node", {}).get("id")
+                try:
+                    return int(user_id)
+                except (ValueError, TypeError):
+                    logger.error(f"Could not convert user ID '{user_id}' to int for handle '{handle}'")
+                    return None
+        return None
+
     def search_queries(self, query: str) -> List[Dict[str, Any]]:
         """
         Search for public queries using Dune's GraphQL endpoint.
@@ -97,6 +149,56 @@ class DuneService:
         except Exception as e:
             logger.error(f"Error searching queries: {e}")
             return []
+
+    def list_user_queries(self, user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        List queries for a given user ID using Dune's GraphQL endpoint.
+        """
+        url = "https://core-api.dune.com/public/graphql" # Redundant, but good for clarity.
+        
+        payload = {
+            "operationName": "ListUserQueries",
+            "variables": {"userId": user_id, "limit": limit},
+            "query": """
+                query ListUserQueries($userId: Int!, $limit: Int!) {
+                    queries(
+                        filters: { userId: { equals: $userId } }
+                        pagination: { first: $limit }
+                    ) {
+                        edges {
+                            node {
+                                id
+                                name
+                                description
+                                user {
+                                    name
+                                    handle
+                                }
+                            }
+                        }
+                    }
+                }
+            """
+        }
+
+        response_data = self._get_graphql_response(payload)
+        if response_data:
+            edges = response_data.get("data", {}).get("queries", {}).get("edges", [])
+            
+            results = []
+            for edge in edges:
+                node = edge.get("node", {})
+                if not node:
+                    continue
+                    
+                results.append({
+                    "id": node.get("id"),
+                    "name": node.get("name"),
+                    "owner": node.get("user", {}).get("handle", "unknown"),
+                    "description": node.get("description", "")
+                })
+            return results
+        return []
 
     def get_query(self, query_id: int) -> Dict[str, Any]:
         cache_key = str(query_id)
