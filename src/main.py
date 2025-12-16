@@ -34,11 +34,25 @@ def get_account_status() -> str:
     Check your Dune Analytics credit budget and usage.
     Always run this first to see if you can afford to run queries.
     """
-    # Try to get real usage from API
     try:
         usage = dune_service.get_usage()
-        # Parse usage object (depends on SDK return type, assuming dict or object)
-        # For now, return string representation
+        
+        # Parse usage object
+        # UsageResponse(billing_periods=[BillingPeriod(credits_included=..., credits_used=...)], ...)
+        if hasattr(usage, 'billing_periods') and usage.billing_periods:
+            current = usage.billing_periods[0]
+            limit = current.credits_included
+            used = current.credits_used
+            remaining = limit - used
+            
+            return (
+                f"Dune Account Status:\n"
+                f"- Credits Used: {int(used)}\n"
+                f"- Credits Limit: {int(limit)}\n"
+                f"- Remaining: {int(remaining)}\n"
+                f"- Period: {current.start_date} to {current.end_date}"
+            )
+        
         return f"Dune Account Status: {usage}"
     except Exception as e:
         return f"Could not fetch account status: {str(e)}"
