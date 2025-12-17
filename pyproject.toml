@@ -1,9 +1,12 @@
 [project]
 name = "dune-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "A defensive, token-aware MCP server for Dune Analytics."
 readme = "README.md"
 requires-python = ">=3.12"
+authors = [
+    {name = "nice-bills", email = "alnicewilliams2@gmail.com"}
+]
 dependencies = [
     "cachetools>=6.2.4",
     "curl-cffi>=0.14.0",
@@ -14,3 +17,10 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
 ]
+
+[project.scripts]
+dune-mcp = "src.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

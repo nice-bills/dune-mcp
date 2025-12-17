@@ -339,5 +339,8 @@ def get_spellbook_file_content(path: str) -> str:
     
     return f"File: {path}\n\n{content}"
 
-if __name__ == "__main__":
+def main():
     mcp.run()
+
+if __name__ == "__main__":
+    main()
