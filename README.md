@@ -4,7 +4,7 @@ A **defensive, token-aware** MCP server for Dune Analytics.
 
 This project enables LLMs (like Claude, or custom agents) to securely interact with Dune Analytics. It acts as a "Smart Gateway" that prioritizes **Query Reuse** and **Budget Safety** over raw SQL generation, protecting your API credits and reducing token consumption.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Option 1: Install via PyPI (Recommended)
 
@@ -90,6 +90,9 @@ Once connected, you can ask Claude things like:
 10. `export_results_to_csv(job_id)`: Download the full dataset.
 11. `analyze_results(job_id)`: Detect outliers and trends in data.
 12. `analyze_query_error(error_message, query_sql)`: Get AI-driven fix suggestions for failed queries.
+13. `create_query(name, sql)`: Save a new query to your Dune account.
+14. `update_query(query_id, sql)`: Modify an existing query.
+15. `archive_query(query_id)`: Delete/Archive a query.
 
 ## Installation
 
@@ -152,6 +155,12 @@ This "Rosetta Stone" approach is faster, safer, and cheaper than blindly queryin
 1.  **Never stream raw data:** 100k rows = Token Death. We stream previews + stats.
 2.  **Two-Phase Reasoning:** Plan (Search/Estimate) → Execute.
 3.  **MCP Does the Boring Work:** We calculate min/max/avg in Python, not the LLM.
+
+## Limitations
+
+*   **Paid Features:** The `create_query`, `update_query`, and `archive_query` tools require a **Paid Dune Plan** (Plus or Premium) to access the write-access API endpoints. Free tier users will receive a 403 Forbidden error.
+*   **Rate Limits:** Be mindful of Dune's API rate limits, especially on the free tier.
+*   **WAF:** The search tools use an unofficial method and may be temporarily blocked by Cloudflare. The MCP handles this by suggesting alternatives.
 
 ## License
 MIT
