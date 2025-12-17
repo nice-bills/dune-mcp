@@ -64,6 +64,8 @@ This project enables LLMs (like Claude, or custom agents) to securely interact w
 8.  `get_job_status(job_id)`: Poll for completion.
 9.  `get_job_results_summary(job_id)`: Get a lightweight preview (5 rows + stats).
 10. `export_results_to_csv(job_id)`: Download the full dataset.
+11. `analyze_results(job_id)`: Detect outliers and trends in data.
+12. `analyze_query_error(error_message, query_sql)`: Get AI-driven fix suggestions for failed queries.
 
 ## Installation
 
