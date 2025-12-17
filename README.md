@@ -4,6 +4,45 @@ A **defensive, token-aware** MCP server for Dune Analytics.
 
 This project enables LLMs (like Claude, or custom agents) to securely interact with Dune Analytics. It acts as a "Smart Gateway" that prioritizes **Query Reuse** and **Budget Safety** over raw SQL generation, protecting your API credits and reducing token consumption.
 
+## Quick Start
+
+1.  **Get your API Keys:**
+    *   **Dune API Key:** [Get it here](https://dune.com/settings/api)
+    *   **GitHub Token (Optional):** [Get it here](https://github.com/settings/tokens) (Select `public_repo` scope)
+
+2.  **Install & Configure:**
+    ```bash
+    # Clone the repo
+    git clone https://github.com/nice-bills/dune-mcp.git
+    cd dune-mcp
+
+    # Install dependencies (requires uv)
+    # If you don't have uv: pip install uv
+    uv sync
+
+    # Set up environment
+    cp .env.example .env
+    # Open .env and paste your keys
+    ```
+
+3.  **Connect to Claude:**
+    Add this to your `claude_desktop_config.json`:
+    *   **MacOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+    *   **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+    ```json
+    {
+      "mcpServers": {
+        "dune": {
+          "command": "uv",
+          "args": ["run", "src/main.py"],
+          "cwd": "/absolute/path/to/dune-mcp"
+        }
+      }
+    }
+    ```
+    *(Note: Replace `/absolute/path/to/` with the actual path to the folder)*
+
 ## Features
 
 *   **Google-like Search:** Reverse-engineered GraphQL integration allows searching public queries by keyword (e.g., "uniswap volume").
@@ -20,7 +59,7 @@ This project enables LLMs (like Claude, or custom agents) to securely interact w
 3.  `search_spellbook(keyword)`: Search the official Dune Spellbook GitHub repo for tables (e.g., "uniswap").
 4.  `get_spellbook_file_content(path)`: View the SQL or schema of a Spellbook file.
 5.  `get_query_details(query_id)`: Inspect SQL and parameters (on demand).
-6.  `get_table_schema(table_name)`: Get columns for a specific table (⚠️ Costs Credits).
+6.  `get_table_schema(table_name)`: Get columns for a specific table (Costs Credits).
 7.  `execute_query(query_id)`: Run a query (async, budget-checked).
 8.  `get_job_status(job_id)`: Poll for completion.
 9.  `get_job_results_summary(job_id)`: Get a lightweight preview (5 rows + stats).
