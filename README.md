@@ -17,6 +17,13 @@ This project enables LLMs (like Claude, or custom agents) to securely interact w
     pip install dune-mcp
     ```
 
+    **To Update:**
+    ```bash
+    uv tool upgrade dune-mcp
+    # OR
+    pip install --upgrade dune-mcp
+    ```
+
 2.  **Configure Claude Desktop:**
     Add this to your `claude_desktop_config.json`:
     
