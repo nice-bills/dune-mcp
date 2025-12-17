@@ -11,6 +11,7 @@ from src.services.budget_manager import BudgetManager, BudgetConfig, BudgetExcee
 from src.services.cache import CacheManager
 from src.services.dune_client import DuneService
 from src.services.data_processor import DataProcessor
+from src.services.error_analyzer import ErrorAnalyzer
 
 # Initialize Services
 config = Config()
@@ -24,9 +25,27 @@ budget_manager = BudgetManager(budget_config)
 cache_manager = CacheManager()
 dune_service = DuneService(cache_manager)
 data_processor = DataProcessor(export_dir=config.EXPORT_DIR)
+error_analyzer = ErrorAnalyzer(dune_service)
 
 # Initialize MCP Server
 mcp = FastMCP("Dune Analytics")
+
+@mcp.tool()
+def analyze_query_error(error_message: str, query_sql: str) -> str:
+    """
+    Analyze a failed query execution to provide actionable suggestions for fixing it.
+    Use this when 'execute_query' returns an error to understand what went wrong
+    and how to fix it (e.g. suggesting correct column names).
+    """
+    analysis = error_analyzer.analyze(error_message, query_sql)
+    
+    response = [f"Error Type: {analysis['error_type']}"]
+    if analysis['suggestion']:
+        response.append(f"Suggestion: {analysis['suggestion']}")
+    else:
+        response.append("No specific suggestion found. Please check the SQL syntax and schema manually.")
+        
+    return "\n".join(response)
 
 @mcp.tool()
 def get_account_status() -> str:
