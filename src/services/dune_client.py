@@ -326,8 +326,14 @@ class DuneService:
             meta = result.result.metadata
             columns = []
             if meta:
-                for col in meta.columns:
-                    columns.append({"name": col.name, "type": col.type})
+                # Based on debugging, ResultMetadata has column_names and column_types directly
+                if hasattr(meta, 'column_names') and hasattr(meta, 'column_types'):
+                    for i, name in enumerate(meta.column_names):
+                        # Ensure meta.column_types is also indexed by i
+                        col_type = meta.column_types[i] if i < len(meta.column_types) else "unknown"
+                        columns.append({"name": name, "type": col_type})
+                else:
+                    logger.warning("Could not find column_names/column_types in ResultMetadata.")
             
             return {
                 "table": table_name,
