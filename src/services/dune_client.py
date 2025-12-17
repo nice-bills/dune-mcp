@@ -344,6 +344,45 @@ class DuneService:
             logger.error(f"Error getting schema for {table_name}: {e}")
             raise
 
+    def _get_query_graphql(self, query_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Fallback: Fetch query details via GraphQL if the official API returns 403.
+        This often happens for 'Community' queries that aren't explicitly published
+        but are visible on the web.
+        """
+        payload = {
+            "operationName": "GetQuery",
+            "variables": {"id": query_id},
+            "query": """
+                query GetQuery($id: Int!) {
+                    query(id: $id) {
+                        id
+                        name
+                        description
+                        parameters
+                        ownerFields {
+                            query
+                        }
+                    }
+                }
+            """
+        }
+        
+        response_data = self._get_graphql_response(payload)
+        
+        if response_data and "data" in response_data:
+            q = response_data["data"].get("query")
+            if q:
+                # Map GraphQL structure to expected SDK structure
+                return {
+                    "id": q["id"],
+                    "name": q["name"],
+                    "description": q["description"] or "",
+                    "sql": q.get("ownerFields", {}).get("query", ""), # The SQL is here!
+                    "parameters": q.get("parameters", []) # JSON scalar
+                }
+        return None
+
     def get_query(self, query_id: int) -> Dict[str, Any]:
         cache_key = str(query_id)
         cached = self.cache.get("query", cache_key)
@@ -363,6 +402,16 @@ class DuneService:
             self.cache.set("query", cache_key, data)
             return data
         except Exception as e:
+            # Check for 403 Forbidden (common for public-but-not-published queries)
+            is_forbidden = "403" in str(e) or "Forbidden" in str(e)
+            
+            if is_forbidden:
+                logger.info(f"Access Forbidden via SDK for Query {query_id}. Attempting GraphQL fallback...")
+                fallback_data = self._get_query_graphql(query_id)
+                if fallback_data:
+                    self.cache.set("query", cache_key, fallback_data)
+                    return fallback_data
+            
             logger.error(f"Error fetching query {query_id}: {e}")
             raise
 
