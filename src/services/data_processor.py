@@ -71,3 +71,58 @@ class DataProcessor:
         
         df.to_csv(filepath, index=False)
         return filepath
+
+    def analyze_dataframe(self, result_data: Any) -> Dict[str, Any]:
+        """
+        Performs advanced statistical analysis on the result dataset.
+        Detects outliers, trends, and anomalies.
+        """
+        try:
+            rows = result_data.result.rows
+        except AttributeError:
+            rows = result_data if isinstance(result_data, list) else []
+
+        if not rows:
+            return {"error": "No data to analyze"}
+
+        df = pd.DataFrame(rows)
+        analysis = {
+            "row_count": len(df),
+            "numeric_analysis": {}
+        }
+
+        # Analyze numeric columns
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        
+        for col in numeric_cols:
+            stats = {}
+            series = df[col]
+            
+            # Basic stats
+            mean = series.mean()
+            std = series.std()
+            stats["mean"] = float(mean)
+            stats["std_dev"] = float(std)
+            
+            # Outlier Detection (Z-Score > 3)
+            # Avoid division by zero
+            if std > 0:
+                outliers = df[abs((series - mean) / std) > 3]
+                stats["outlier_count"] = len(outliers)
+                if len(outliers) > 0:
+                    stats["top_outliers"] = outliers[col].head(3).tolist()
+            else:
+                stats["outlier_count"] = 0
+
+            # Trend (Simple check: is the first half avg different from second half?)
+            # This is a heuristic for "change over time" if sorted
+            if len(series) > 10:
+                mid = len(series) // 2
+                first_half = series.iloc[:mid].mean()
+                second_half = series.iloc[mid:].mean()
+                pct_change = ((second_half - first_half) / first_half) * 100 if first_half != 0 else 0
+                stats["trend_heuristic"] = f"{pct_change:.1f}% change (first half vs second half)"
+
+            analysis["numeric_analysis"][col] = stats
+
+        return analysis

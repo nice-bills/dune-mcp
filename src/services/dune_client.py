@@ -415,6 +415,13 @@ class DuneService:
 
     def get_result(self, job_id: str) -> Any:
         return self.client.get_execution_results(job_id)
+
+    def analyze_result(self, job_id: str, data_processor: Any) -> Dict[str, Any]:
+        """
+        Fetches results and runs advanced analysis using the DataProcessor.
+        """
+        result = self.get_result(job_id)
+        return data_processor.analyze_dataframe(result)
         
     def get_usage(self) -> Dict[str, Any]:
         """Returns the credit usage info."""

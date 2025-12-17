@@ -222,6 +222,44 @@ def get_job_results_summary(job_id: str) -> str:
         return f"Error fetching results: {str(e)}"
 
 @mcp.tool()
+def analyze_results(job_id: str) -> str:
+    """
+    Perform advanced statistical analysis on query results.
+    Detects outliers (Z-score > 3) and heuristic trends in numeric data.
+    Use this to find anomalies or changes in data over time.
+    """
+    try:
+        # Check status first
+        state = dune_service.get_status(job_id)
+        if state != "QUERY_STATE_COMPLETED" and state != "COMPLETED":
+            return f"Job is not complete (Status: {state}). Cannot analyze."
+
+        analysis = dune_service.analyze_result(job_id, data_processor)
+        
+        if "error" in analysis:
+            return f"Analysis Failed: {analysis['error']}"
+            
+        summary = [f"Analysis for Job {job_id} ({analysis['row_count']} rows):"]
+        
+        for col, stats in analysis.get("numeric_analysis", {}).items():
+            summary.append(f"\nColumn: {col}")
+            summary.append(f"  Mean: {stats.get('mean'):.2f} | StdDev: {stats.get('std_dev'):.2f}")
+            
+            outliers = stats.get("outlier_count", 0)
+            if outliers > 0:
+                summary.append(f"  ⚠️ Outliers detected: {outliers} values (>3 sigma)")
+                summary.append(f"  Sample outliers: {stats.get('top_outliers')}")
+            else:
+                summary.append("  No significant outliers.")
+                
+            if "trend_heuristic" in stats:
+                summary.append(f"  Trend: {stats['trend_heuristic']}")
+                
+        return "\n".join(summary)
+    except Exception as e:
+        return f"Error analyzing results: {str(e)}"
+
+@mcp.tool()
 def export_results_to_csv(job_id: str) -> str:
     """
     Download the full dataset to a CSV file for analysis in Excel/Python.
