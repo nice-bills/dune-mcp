@@ -4,32 +4,49 @@ A **defensive, token-aware** MCP server for Dune Analytics.
 
 This project enables LLMs (like Claude, or custom agents) to securely interact with Dune Analytics. It acts as a "Smart Gateway" that prioritizes **Query Reuse** and **Budget Safety** over raw SQL generation, protecting your API credits and reducing token consumption.
 
-## Quick Start
+## 🚀 Quick Start
 
-1.  **Get your API Keys:**
-    *   **Dune API Key:** [Get it here](https://dune.com/settings/api)
-    *   **GitHub Token (Optional):** [Get it here](https://github.com/settings/tokens) (Select `public_repo` scope)
+### Option 1: Install via PyPI (Recommended)
 
-2.  **Install & Configure:**
+1.  **Install:**
     ```bash
-    # Clone the repo
-    git clone https://github.com/nice-bills/dune-mcp.git
-    cd dune-mcp
-
-    # Install dependencies (requires uv)
-    # If you don't have uv: pip install uv
-    uv sync
-
-    # Set up environment
-    cp .env.example .env
-    # Open .env and paste your keys
+    # The easiest way to manage tools
+    uv tool install dune-mcp
+    
+    # OR using pip
+    pip install dune-mcp
     ```
 
-3.  **Connect to Claude:**
+2.  **Configure Claude Desktop:**
     Add this to your `claude_desktop_config.json`:
-    *   **MacOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-    *   **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+    
+    ```json
+    {
+      "mcpServers": {
+        "dune": {
+          "command": "dune-mcp",
+          "env": {
+            "DUNE_API_KEY": "your_api_key",
+            "DUNE_USER_HANDLE": "your_username",
+            "GITHUB_TOKEN": "optional_github_token"
+          }
+        }
+      }
+    }
+    ```
 
+### Option 2: Run from Source
+
+1.  **Clone & Setup:**
+    ```bash
+    git clone https://github.com/nice-bills/dune-mcp.git
+    cd dune-mcp
+    uv sync
+    cp .env.example .env
+    # Edit .env with your keys
+    ```
+
+2.  **Configure Claude Desktop:**
     ```json
     {
       "mcpServers": {
@@ -41,9 +58,16 @@ This project enables LLMs (like Claude, or custom agents) to securely interact w
       }
     }
     ```
-    *(Note: Replace `/absolute/path/to/` with the actual path to the folder)*
 
-## Features
+## Usage
+
+Once connected, you can ask Claude things like:
+*   "Find queries about Uniswap volume on Base."
+*   "List my recent queries."
+*   "Execute query ID 12345."
+*   "Analyze the results of the last query."
+
+### Zero-Credit Schema Discovery
 
 *   **Google-like Search:** Reverse-engineered GraphQL integration allows searching public queries by keyword (e.g., "uniswap volume").
 *   **Portfolio Browsing:** List queries by user handle to access your own or others' work.
