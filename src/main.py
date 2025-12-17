@@ -161,6 +161,46 @@ def get_table_schema(table_name: str) -> str:
         return f"Error fetching schema: {str(e)}"
 
 @mcp.tool()
+def create_query(name: str, sql: str, description: str = "") -> str:
+    """
+    Create a new query in your Dune account.
+    Useful for saving successful SQL or creating new dashboards.
+    Returns the new Query ID.
+    NOTE: This feature may require a Paid Dune plan.
+    """
+    try:
+        query_id = dune_service.create_query(name, sql, description)
+        return f"Successfully created Query {query_id}: '{name}'\nURL: https://dune.com/queries/{query_id}"
+    except Exception as e:
+        return f"Error creating query: {str(e)}"
+
+@mcp.tool()
+def update_query(query_id: int, sql: str, description: str = None) -> str:
+    """
+    Update an existing query's SQL logic or description.
+    WARNING: This modifies the query permanently on Dune.
+    NOTE: This feature may require a Paid Dune plan.
+    """
+    try:
+        dune_service.update_query(query_id, sql, description)
+        return f"Successfully updated Query {query_id}."
+    except Exception as e:
+        return f"Error updating query: {str(e)}"
+
+@mcp.tool()
+def archive_query(query_id: int) -> str:
+    """
+    Archive (delete) a query.
+    Use this to clean up temporary or failed queries.
+    NOTE: This feature may require a Paid Dune plan.
+    """
+    try:
+        dune_service.archive_query(query_id)
+        return f"Successfully archived Query {query_id}."
+    except Exception as e:
+        return f"Error archiving query: {str(e)}"
+
+@mcp.tool()
 def execute_query(query_id: int, params: Optional[Dict[str, Any]] = None) -> str:
     """
     Execute a specific query ID. 

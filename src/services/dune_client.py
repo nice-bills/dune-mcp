@@ -383,6 +383,42 @@ class DuneService:
                 }
         return None
 
+    def create_query(self, name: str, sql: str, description: str = "") -> int:
+        """
+        Creates a new query in Dune. Returns the new Query ID.
+        """
+        try:
+            # client.create_query returns a Query object, we need its ID
+            # Removed 'description' arg as it's not supported in current SDK version
+            query = self.client.create_query(name=name, query_sql=sql)
+            return query.base.query_id
+        except Exception as e:
+            logger.error(f"Error creating query '{name}': {e}")
+            raise
+
+    def update_query(self, query_id: int, sql: str, description: str = None, name: str = None) -> int:
+        """
+        Updates an existing query. Returns the Query ID.
+        """
+        try:
+            # client.update_query takes query_id and optional fields
+            # Removed 'description' arg as it's not supported in current SDK version
+            self.client.update_query(query_id, query_sql=sql, name=name)
+            return query_id
+        except Exception as e:
+            logger.error(f"Error updating query {query_id}: {e}")
+            raise
+
+    def archive_query(self, query_id: int) -> bool:
+        """
+        Archives a query. Returns True on success.
+        """
+        try:
+            return self.client.archive_query(query_id)
+        except Exception as e:
+            logger.error(f"Error archiving query {query_id}: {e}")
+            raise
+
     def get_query(self, query_id: int) -> Dict[str, Any]:
         cache_key = str(query_id)
         cached = self.cache.get("query", cache_key)
