@@ -1,10 +1,13 @@
 # Dune MCP (Model Context Protocol)
 
+[![PyPI version](https://badge.fury.io/py/dune-mcp.svg)](https://badge.fury.io/py/dune-mcp)
+[![Downloads](https://pepy.tech/badge/dune-mcp)](https://pepy.tech/project/dune-mcp)
+
 A **defensive, token-aware** MCP server for Dune Analytics.
 
 This project enables LLMs (like Claude, or custom agents) to securely interact with Dune Analytics. It acts as a "Smart Gateway" that prioritizes **Query Reuse** and **Budget Safety** over raw SQL generation, protecting your API credits and reducing token consumption.
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Option 1: Install via PyPI (Recommended)
 
