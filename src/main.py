@@ -33,9 +33,7 @@ mcp = FastMCP("Dune Analytics")
 @mcp.tool()
 def analyze_query_error(error_message: str, query_sql: str) -> str:
     """
-    Analyze a failed query execution to provide actionable suggestions for fixing it.
-    Use this when 'execute_query' returns an error to understand what went wrong
-    and how to fix it (e.g. suggesting correct column names).
+    Analyze failed queries and suggest fixes (e.g. for 'Column not found').
     """
     analysis = error_analyzer.analyze(error_message, query_sql)
     
@@ -50,8 +48,7 @@ def analyze_query_error(error_message: str, query_sql: str) -> str:
 @mcp.tool()
 def get_account_status() -> str:
     """
-    Check your Dune Analytics credit budget and usage.
-    Always run this first to see if you can afford to run queries.
+    Check remaining credits and budget limits.
     """
     try:
         usage = dune_service.get_usage()
@@ -79,8 +76,7 @@ def get_account_status() -> str:
 @mcp.tool()
 def get_session_budget() -> str:
     """
-    Check your remaining session limits (queries, credits, schema calls).
-    This is the internal safety guard for this specific chat session.
+    Check remaining queries/credits for this session.
     """
     status = budget_manager.get_status()
     return (
@@ -93,10 +89,7 @@ def get_session_budget() -> str:
 @mcp.tool()
 def search_public_queries(query: str) -> str:
     """
-    Search for existing public queries on Dune.
-    CRITICAL: Use this tool to discover table names and schema patterns by inspecting 
-    SQL from similar queries. DO NOT GUESS table names.
-    Returns a summary list of matching queries.
+    Search public queries by keyword. Use this to discover table names from existing SQL.
     """
     results = dune_service.search_queries(query)
     
@@ -117,9 +110,7 @@ def search_public_queries(query: str) -> str:
 @mcp.tool()
 def get_query_details(query_id: int) -> str:
     """
-    Get the full SQL, description, and parameters for a specific query.
-    Use this to understand what a query does before running it, or to 
-    extract table names from working SQL.
+    Get SQL and parameters for a query ID.
     """
     try:
         details = dune_service.get_query(query_id)
@@ -136,9 +127,7 @@ def get_query_details(query_id: int) -> str:
 @mcp.tool()
 def get_table_schema(table_name: str) -> str:
     """
-    Get the column definitions for a specific table.
-    ⚠️ WARNING: This tool executes a 'SELECT * LIMIT 0' query which CONSUMES CREDITS.
-    Use this ONLY if you know the table name but cannot find its schema via existing queries.
+    Get columns for a table. ⚠️ Costs Credits (runs SELECT * LIMIT 0).
     """
     try:
         # 1. Check Budget (This counts as a query execution)
@@ -163,10 +152,7 @@ def get_table_schema(table_name: str) -> str:
 @mcp.tool()
 def create_query(name: str, sql: str, description: str = "") -> str:
     """
-    Create a new query in your Dune account.
-    Useful for saving successful SQL or creating new dashboards.
-    Returns the new Query ID.
-    NOTE: This feature may require a Paid Dune plan.
+    Save a new query to Dune. Returns Query ID. (Requires Paid Plan)
     """
     try:
         query_id = dune_service.create_query(name, sql, description)
@@ -177,9 +163,7 @@ def create_query(name: str, sql: str, description: str = "") -> str:
 @mcp.tool()
 def update_query(query_id: int, sql: str, description: str = None) -> str:
     """
-    Update an existing query's SQL logic or description.
-    WARNING: This modifies the query permanently on Dune.
-    NOTE: This feature may require a Paid Dune plan.
+    Update SQL/description of an existing query. (Requires Paid Plan)
     """
     try:
         dune_service.update_query(query_id, sql, description)
@@ -190,9 +174,7 @@ def update_query(query_id: int, sql: str, description: str = None) -> str:
 @mcp.tool()
 def archive_query(query_id: int) -> str:
     """
-    Archive (delete) a query.
-    Use this to clean up temporary or failed queries.
-    NOTE: This feature may require a Paid Dune plan.
+    Archive/Delete a query. (Requires Paid Plan)
     """
     try:
         dune_service.archive_query(query_id)
@@ -203,9 +185,7 @@ def archive_query(query_id: int) -> str:
 @mcp.tool()
 def execute_query(query_id: int, params: Optional[Dict[str, Any]] = None) -> str:
     """
-    Execute a specific query ID. 
-    CHECKS BUDGET FIRST. Returns a Job ID to track progress.
-    WARNING: Ensure query_id is valid. Do not execute queries with guessed table names.
+    Execute a query by ID. Returns Job ID.
     """
     try:
         # 1. Check Session Budget (Query Count)
@@ -228,9 +208,7 @@ def execute_query(query_id: int, params: Optional[Dict[str, Any]] = None) -> str
 @mcp.tool()
 def get_job_status(job_id: str) -> str:
     """
-    Check the status of a running query job (PENDING, COMPLETED, FAILED).
-    This tool polls internally for up to 30 seconds to wait for completion,
-    reducing the need for the assistant to call it repeatedly.
+    Check query execution status. Polls for 30s.
     """
     try:
         # Internal polling loop (max 30s)
@@ -253,8 +231,7 @@ def get_job_status(job_id: str) -> str:
 @mcp.tool()
 def get_job_results_summary(job_id: str) -> str:
     """
-    Get a PREVIEW and SUMMARY of the results. 
-    Does NOT return the full dataset to save tokens.
+    Get result preview (5 rows) and stats.
     """
     try:
         # Check status first
@@ -278,9 +255,7 @@ def get_job_results_summary(job_id: str) -> str:
 @mcp.tool()
 def analyze_results(job_id: str) -> str:
     """
-    Perform advanced statistical analysis on query results.
-    Detects outliers (Z-score > 3) and heuristic trends in numeric data.
-    Use this to find anomalies or changes in data over time.
+    Detect outliers (Z-score > 3) and trends in query results.
     """
     try:
         # Check status first
@@ -316,7 +291,7 @@ def analyze_results(job_id: str) -> str:
 @mcp.tool()
 def export_results_to_csv(job_id: str) -> str:
     """
-    Download the full dataset to a CSV file for analysis in Excel/Python.
+    Download full query results to local CSV.
     """
     try:
         raw_result = dune_service.get_result(job_id)
@@ -328,8 +303,7 @@ def export_results_to_csv(job_id: str) -> str:
 @mcp.tool()
 def list_user_queries(handle: Optional[str] = None, limit: int = 10) -> str:
     """
-    List queries created by a specific user handle.
-    If 'handle' is omitted, tries to use the 'DUNE_USER_HANDLE' from env config.
+    List queries by user handle.
     """
     target_handle = handle or config.DUNE_USER_HANDLE
     
@@ -366,9 +340,7 @@ def list_user_queries(handle: Optional[str] = None, limit: int = 10) -> str:
 @mcp.tool()
 def search_spellbook(keyword: str) -> str:
     """
-    Search the Dune Spellbook (GitHub) for official table definitions and logic.
-    Use this to find high-quality, community-vetted table schemas (e.g. for 'uniswap').
-    Returns a list of matching file paths (SQL models and YAML schemas).
+    Search GitHub Spellbook for official tables (.sql/.yml). Zero-credit schema discovery.
     """
     results = dune_service.search_spellbook(keyword)
     if not results:
@@ -383,9 +355,7 @@ def search_spellbook(keyword: str) -> str:
 @mcp.tool()
 def get_spellbook_file_content(path: str) -> str:
     """
-    Fetch the content of a file from the Dune Spellbook repository.
-    Use this to read the SQL logic or Schema definition of a file found via 'search_spellbook'.
-    'path' should be the relative path returned by search (e.g., 'models/dex/uniswap/trades.sql').
+    Fetch raw content of a Spellbook file from GitHub.
     """
     content = dune_service.get_spellbook_file_content(path)
     if not content:
