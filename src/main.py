@@ -229,10 +229,24 @@ def execute_query(query_id: int, params: Optional[Dict[str, Any]] = None) -> str
 def get_job_status(job_id: str) -> str:
     """
     Check the status of a running query job (PENDING, COMPLETED, FAILED).
+    This tool polls internally for up to 30 seconds to wait for completion,
+    reducing the need for the assistant to call it repeatedly.
     """
     try:
-        state = dune_service.get_status(job_id)
-        return f"Job {job_id} is {state}"
+        # Internal polling loop (max 30s)
+        import time
+        max_retries = 15 # 15 * 2s = 30s
+        for i in range(max_retries):
+            state = dune_service.get_status(job_id)
+            if state in ["COMPLETED", "FAILED", "CANCELLED"]:
+                return f"Job {job_id} is {state}"
+            
+            # If running, wait a bit
+            time.sleep(2)
+            
+        # If still running after 30s
+        return f"Job {job_id} is still {state}. Please check again later."
+        
     except Exception as e:
         return f"Error checking status: {str(e)}"
 
