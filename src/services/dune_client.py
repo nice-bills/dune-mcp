@@ -482,21 +482,30 @@ class DuneService:
             logger.error(f"Error executing query {query_id}: {e}")
             raise
 
-    def get_status(self, job_id: str) -> str:
+    def get_status(self, job_id: str) -> Dict[str, Any]:
+        """
+        Returns the status of a job, including credit usage if available.
+        """
         cached = self.cache.get("status", job_id)
         if cached:
+            # Check if cached value is old string format or new dict format
+            if isinstance(cached, str):
+                return {"state": cached}
             return cached
             
-        status = self.client.get_execution_status(job_id)
-        state = status.state # e.g. QUERY_STATE_COMPLETED
+        status_response = self.client.get_execution_status(job_id)
+        state = str(status_response.state).replace("ExecutionState.", "")
         
-        # Normalize state
-        state_str = str(state).replace("ExecutionState.", "")
+        result = {
+            "state": state,
+            "credits_used": getattr(status_response, "execution_cost_credits", None),
+            "execution_time": getattr(status_response, "execution_time_millis", 0) # sometimes available
+        }
         
-        if state_str in ["COMPLETED", "FAILED", "CANCELLED"]:
-            self.cache.set("status", job_id, state_str)
+        if state in ["COMPLETED", "FAILED", "CANCELLED"]:
+            self.cache.set("status", job_id, result)
             
-        return state_str
+        return result
 
     def get_result(self, job_id: str) -> Any:
         return self.client.get_execution_results(job_id)

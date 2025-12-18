@@ -62,6 +62,29 @@ class BudgetManager:
         self.schema_calls += 1
         logger.info(f"Budget update: {self.schema_calls}/{self.config.max_schema_calls} schema calls.")
 
+    def sync_usage(self, actual_used: float, actual_limit: float) -> None:
+        """
+        Sync local budget tracking with the actual usage reported by the Dune API.
+        This corrects any drift from our estimations.
+        """
+        # We only update 'used_credits' based on the API's report for the current period.
+        # Note: API usage is global (monthly), while our session budget is local.
+        # A simple strategy: If actual usage jumped significantly, we deduct that diff from our session.
+        # But for simplicity and safety, let's just log it and perhaps warn if we are near the global limit.
+        
+        # Actually, for a session manager, we care about "Credits consumed THIS SESSION".
+        # Syncing with global usage is hard unless we stored the "start_usage".
+        # Let's just update the limit if the API says we have less remaining than we thought.
+        
+        remaining_global = actual_limit - actual_used
+        remaining_session = self.config.max_credits - self.used_credits
+        
+        if remaining_global < remaining_session:
+            # If global remaining is LESS than what we think we have for the session,
+            # we must cap our session budget to reality.
+            self.config.max_credits = self.used_credits + remaining_global
+            logger.info(f"Budget synced: Session limit lowered to match global remaining ({remaining_global:.2f}).")
+
     def get_status(self) -> dict:
         return {
             "queries": {
