@@ -54,12 +54,14 @@ def get_account_status() -> str:
         usage = dune_service.get_usage()
         
         # Parse usage object
-        # UsageResponse(billing_periods=[BillingPeriod(credits_included=..., credits_used=...)], ...)
         if hasattr(usage, 'billing_periods') and usage.billing_periods:
             current = usage.billing_periods[0]
             limit = current.credits_included
             used = current.credits_used
             remaining = limit - used
+            
+            # Sync with BudgetManager
+            budget_manager.sync_usage(float(used), float(limit))
             
             return (
                 f"Dune Account Status:\n"
@@ -127,7 +129,7 @@ def get_query_details(query_id: int) -> str:
 @mcp.tool()
 def get_table_schema(table_name: str) -> str:
     """
-    Get columns for a table. ⚠️ Costs Credits (runs SELECT * LIMIT 0).
+    Get columns for a table. Costs Credits (runs SELECT * LIMIT 0).
     """
     try:
         # 1. Check Budget (This counts as a query execution)
@@ -215,9 +217,15 @@ def get_job_status(job_id: str) -> str:
         import time
         max_retries = 15 # 15 * 2s = 30s
         for i in range(max_retries):
-            state = dune_service.get_status(job_id)
+            status_data = dune_service.get_status(job_id)
+            state = status_data.get("state", "UNKNOWN")
+            
             if state in ["COMPLETED", "FAILED", "CANCELLED"]:
-                return f"Job {job_id} is {state}"
+                msg = f"Job {job_id} is {state}"
+                credits = status_data.get("credits_used")
+                if credits is not None:
+                    msg += f" (Cost: {credits} Credits)"
+                return msg
             
             # If running, wait a bit
             time.sleep(2)
@@ -235,7 +243,9 @@ def get_job_results_summary(job_id: str) -> str:
     """
     try:
         # Check status first
-        state = dune_service.get_status(job_id)
+        status_data = dune_service.get_status(job_id)
+        state = status_data.get("state", "UNKNOWN")
+        
         if state != "QUERY_STATE_COMPLETED" and state != "COMPLETED":
             return f"Job is not complete (Status: {state}). Please wait."
 
@@ -259,7 +269,9 @@ def analyze_results(job_id: str) -> str:
     """
     try:
         # Check status first
-        state = dune_service.get_status(job_id)
+        status_data = dune_service.get_status(job_id)
+        state = status_data.get("state", "UNKNOWN")
+        
         if state != "QUERY_STATE_COMPLETED" and state != "COMPLETED":
             return f"Job is not complete (Status: {state}). Cannot analyze."
 
@@ -276,7 +288,7 @@ def analyze_results(job_id: str) -> str:
             
             outliers = stats.get("outlier_count", 0)
             if outliers > 0:
-                summary.append(f"  ⚠️ Outliers detected: {outliers} values (>3 sigma)")
+                summary.append(f"  Outliers detected: {outliers} values (>3 sigma)")
                 summary.append(f"  Sample outliers: {stats.get('top_outliers')}")
             else:
                 summary.append("  No significant outliers.")
