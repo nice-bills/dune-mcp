@@ -41,7 +41,7 @@ def test_handshake():
     process.stdin.flush()
 
     # Read from the server's stdout
-    print("cw Waiting for response...")
+    print("Waiting for response...")
     response_line = process.stdout.readline()
     
     if response_line:
