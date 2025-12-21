@@ -119,9 +119,11 @@ cp .env.example .env
 ```
 
 ### Configuration
-Add your handle to `.env` to allow the MCP to auto-detect your queries:
+Add your handle to `.env` to allow the MCP to auto-detect your queries. You can also provide multiple API keys for load rotation:
 ```bash
 DUNE_API_KEY=your_key
+# OR
+DUNE_API_KEYS=key1,key2,key3 # Comma-separated list for rotation
 DUNE_USER_HANDLE=your_username # Optional
 ```
 

@@ -1,5 +1,6 @@
 import os
 import logging
+import random
 import requests
 from typing import List, Dict, Any, Optional
 from dune_client.client import DuneClient
@@ -7,6 +8,7 @@ from dune_client.query import QueryBase
 from dune_client.types import QueryParameter
 from dotenv import load_dotenv
 
+from ..config import Config
 from .cache import CacheManager
 
 load_dotenv()
@@ -14,14 +16,22 @@ logger = logging.getLogger(__name__)
 
 class DuneService:
     def __init__(self, cache_manager: CacheManager):
-        self.api_key = os.getenv("DUNE_API_KEY")
+        self.api_keys = Config.DUNE_API_KEYS
         self.base_url = os.getenv("DUNE_API_BASE_URL", "https://api.dune.com/api/v1")
         
-        if not self.api_key:
+        if not self.api_keys:
             raise ValueError("DUNE_API_KEY environment variable not set")
             
-        self.client = DuneClient(self.api_key)
+        self.clients = [DuneClient(k) for k in self.api_keys]
         self.cache = cache_manager
+
+    @property
+    def client(self) -> DuneClient:
+        return random.choice(self.clients)
+
+    @property
+    def api_key(self) -> str:
+        return random.choice(self.api_keys)
 
     def _get_graphql_response(self, payload: Dict[str, Any], timeout: int = 30) -> Optional[Dict[str, Any]]:
         url = "https://core-api.dune.com/public/graphql"
